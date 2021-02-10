@@ -28,9 +28,13 @@ DebugFmtString = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
 class ARNComponent(object):
 
-    def __init__(self, pattern, arn):
+    def __init__(self, pattern, arn, **kwargs):
         self.pattern = pattern
         self._arn = arn
+        self.kwargs = kwargs
+
+    def __init__subclass__(self, **kwargs):
+        self.kwargs = kwargs
 
     def __repr__(self):
         return self.pattern
@@ -165,7 +169,7 @@ class Region(ARNComponent):
                          'ap-northeast-2',
                          'ap-south-1',
                          'ap-east-1',
-                         'af-south-1'
+                         'af-south-1',
                          'ca-central-1',
                          'sa-east-1',
                          'me-south-1',
@@ -182,6 +186,13 @@ class Region(ARNComponent):
         'iam': _no_region_required,
         'route53': _no_region_required
     }
+
+    def define_subset(self, region_subset):
+        if region_subset:
+            self._all_region_names = region_subset
+        else:
+            LOG.debug("Variable region_subset is required to define subset of regions. Default restored to all regions")
+        return self._all_region_names
 
     def choices(self, context=None):
         if context:
@@ -254,11 +265,13 @@ class ARN(object):
 
     ComponentClasses = [Scheme, Provider, Service, Region, Account, Resource]
 
-    def __init__(self, arn_string='arn:aws:*:*:*:*', **kwargs):
+    def __init__(self, arn_string='arn:aws:*:*:*:*', region_subset=None, **kwargs):
         self.query = None
         self._components = None
         self._build_components_from_string(arn_string)
         self.kwargs = kwargs
+        if region_subset:
+            self.region.define_subset(region_subset)
 
     def __repr__(self):
         return ':'.join([str(c) for c in self._components])
@@ -307,7 +320,7 @@ class ARN(object):
         return self._components[2]
 
     @property
-    def region(self):
+    def region(self, **kwargs):
         return self._components[3]
 
     @property
